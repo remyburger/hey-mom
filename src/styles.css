@@ -100,6 +100,23 @@ button { cursor: pointer; }
 }
 .summary { margin: 10px 0 2px; color: var(--ink-soft); font-size: 16px; }
 
+/* Compared to yesterday */
+.compare {
+  margin: 4px 0 20px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 18px;
+}
+.compare-temps { display: flex; align-items: flex-end; gap: 12px; font-weight: 800; font-size: 22px; letter-spacing: -0.01em; }
+.compare-temps .lbl { display: block; font-size: 13px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0; }
+.compare-temps .arrow { color: var(--accent); padding-bottom: 2px; }
+.compare-delta { margin: 6px 0 0; font-weight: 600; }
+.compare-same { margin: 8px 0 0; color: var(--ink-soft); font-size: 15px; }
+.changes { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.changes li { display: flex; align-items: baseline; gap: 10px; }
+.verb { flex: 0 0 44px; font-size: 13px; font-weight: 700; color: var(--accent); }
+.verb.drop { color: var(--ink-soft); }
+
 /* Outfit: a flat-lay list, no cards */
 .outfit { list-style: none; margin: 8px 0 0; padding: 0; }
 .outfit li {

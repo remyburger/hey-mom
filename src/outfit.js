@@ -44,7 +44,7 @@ export function recommend(hours, bias = 0) {
   // Outer layer: dress for the coldest part (the walk to school)
   const takeOff = layered ? `Easy to take off. It hits ${high}° later` : null;
   let layer = null;
-  if (snow || low < 32) layer = { icon: 'coat', name: 'Heavy coat', note: 'Zip it all the way' };
+  if (snow || low < 32) layer = { icon: 'coat', kind: 'heavycoat', name: 'Heavy coat', note: 'Zip it all the way' };
   else if (low < 45) layer = { icon: wet ? 'raincoat' : 'coat', name: wet ? 'Warm waterproof coat' : 'Warm jacket', note: takeOff || 'All day' };
   else if (low < 58) {
     if (wet) layer = { icon: 'raincoat', name: 'Rain jacket', note: takeOff || 'Hood up' };
@@ -127,3 +127,35 @@ export function biasLabel(bias) {
   if (bias < 0) return `You run ${-bias}° warm`;
   return 'Going by the forecast as is';
 }
+
+// What changes between two days' outfits (prev = yesterday, next = the day being viewed)
+export function compareDays(prev, next) {
+  if (!prev || !next) return null;
+  const changes = [];
+  for (const slot of ['top', 'bottom', 'layer', 'shoes']) {
+    const a = prev.items.find((i) => i.slot === slot);
+    const b = next.items.find((i) => i.slot === slot);
+    // Same kind of garment (e.g. "Light layer" vs "Light jacket") isn't a real change
+    if (a && b && (a.kind || a.icon) !== (b.kind || b.icon)) changes.push({ kind: 'swap', from: a.name, to: b.name, icon: b.icon });
+    else if (!a && b) changes.push({ kind: 'add', to: b.name, icon: b.icon });
+    else if (a && !b) changes.push({ kind: 'drop', from: a.name, icon: a.icon });
+  }
+  const prevExtras = prev.items.filter((i) => i.slot === 'extra');
+  const nextExtras = next.items.filter((i) => i.slot === 'extra');
+  for (const b of nextExtras) if (!prevExtras.some((a) => a.name === b.name)) changes.push({ kind: 'add', to: b.name, icon: b.icon });
+  for (const a of prevExtras) if (!nextExtras.some((b) => b.name === a.name)) changes.push({ kind: 'drop', from: a.name, icon: a.icon });
+
+  return {
+    delta: next.avg - prev.avg,
+    prevRange: rangeText(prev.low, prev.high),
+    nextRange: rangeText(next.low, next.high),
+    changes,
+  };
+}
+
+export function deltaText(delta, otherDay) {
+  if (Math.abs(delta) <= 2) return `About the same as ${otherDay}`;
+  return `${Math.abs(delta)}° ${delta < 0 ? 'colder' : 'warmer'} than ${otherDay}`;
+}
+
+const rangeText = (lo, hi) => (lo === hi ? `${lo}°` : `${lo}–${hi}°`);

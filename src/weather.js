@@ -12,6 +12,7 @@ export async function fetchForecast({ lat, lon }) {
     temperature_unit: 'fahrenheit',
     wind_speed_unit: 'mph',
     timezone: 'auto',
+    past_days: '1',
     forecast_days: '2',
   });
   const res = await fetch(`${FORECAST}?${params}`);
@@ -19,6 +20,7 @@ export async function fetchForecast({ lat, lon }) {
   return res.json();
 }
 
+// daily.time is [yesterday, today, tomorrow].
 // Uses the API's own local date strings, so no UTC/toISOString date-boundary bugs.
 export function hoursForDay(data, dayIndex, startHour, endHour) {
   const date = data.daily.time[dayIndex];
