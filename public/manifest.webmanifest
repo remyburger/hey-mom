@@ -1,5 +1,5 @@
 {
-  "id": "/hey-mom/",
+  "id": "/hey-mom/?app=hey-mom",
   "name": "Hey Mom",
   "short_name": "Hey Mom",
   "description": "What to wear today, based on the weather.",
