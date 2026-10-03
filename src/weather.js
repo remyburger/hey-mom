@@ -57,16 +57,32 @@ export async function searchPlaces(name) {
   }));
 }
 
+// Free client-side reverse geocoding (no key). Falls back to coordinates.
+export async function reverseGeocode(lat, lon) {
+  try {
+    const params = new URLSearchParams({ latitude: String(lat), longitude: String(lon), localityLanguage: 'en' });
+    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?${params}`);
+    if (!res.ok) throw new Error('lookup failed');
+    const j = await res.json();
+    const name = j.city || j.locality || j.principalSubdivision;
+    if (!name) throw new Error('no name');
+    const detail = [j.principalSubdivision !== name ? j.principalSubdivision : null, j.countryCode].filter(Boolean).join(', ');
+    return { name, detail };
+  } catch {
+    return { name: `${lat.toFixed(2)}, ${lon.toFixed(2)}`, detail: '' };
+  }
+}
+
 export function getDeviceLocation() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) return reject(new Error('unsupported'));
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({
-        name: 'My location',
-        detail: '',
-        lat: Math.round(pos.coords.latitude * 100) / 100,
-        lon: Math.round(pos.coords.longitude * 100) / 100,
-      }),
+      async (pos) => {
+        const lat = Math.round(pos.coords.latitude * 100) / 100;
+        const lon = Math.round(pos.coords.longitude * 100) / 100;
+        const { name, detail } = await reverseGeocode(lat, lon);
+        resolve({ name, detail, lat, lon, fromDevice: true });
+      },
       (err) => reject(err),
       { timeout: 10000, maximumAge: 30 * 60 * 1000 }
     );

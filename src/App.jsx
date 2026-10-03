@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchForecast, hoursForDay, searchPlaces, getDeviceLocation } from './weather.js';
+import { fetchForecast, hoursForDay, searchPlaces, getDeviceLocation, reverseGeocode } from './weather.js';
 import { recommend, bandFor, fmtHourShort, biasLabel, compareDays, deltaText, temp, tempDelta } from './outfit.js';
 import Icon from './Icons.jsx';
 
@@ -66,6 +66,15 @@ export default function App() {
   useEffect(() => {
     if (store.place) refresh(store.place);
   }, [placeKey(store.place), refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Older saves used the label "My location": look up the real town name once
+  useEffect(() => {
+    const p = store.place;
+    if (!p || p.name !== 'My location') return;
+    reverseGeocode(p.lat, p.lon).then(({ name, detail }) =>
+      update((prev) => (prev.place && placeKey(prev.place) === placeKey(p) ? { place: { ...prev.place, name, detail, fromDevice: true } } : {}))
+    );
+  }, [placeKey(store.place), update]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // iOS PWAs resume without reloading: refetch when the app comes back if data is old
   useEffect(() => {
@@ -337,7 +346,7 @@ function Settings({ store, update, onPick, onClose }) {
         </div>
 
         <h3>Location</h3>
-        <p className="note">Now: {store.place.name}{store.place.detail ? `, ${store.place.detail}` : ''}</p>
+        <p className="note">Now: {store.place.name}{store.place.detail ? `, ${store.place.detail}` : ''}{store.place.fromDevice ? ' (from your location)' : ''}</p>
         <PlacePicker onPick={onPick} />
 
         <h3>Temperature</h3>
