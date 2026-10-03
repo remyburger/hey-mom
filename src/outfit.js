@@ -2,7 +2,7 @@ import { isSnow, isStorm } from './weather.js';
 
 // bias > 0 means "runs cold": she should dress as if it's colder than forecast.
 // Everything is calculated in °F; unit only changes how numbers are shown.
-export function recommend(hours, bias = 0, unit = 'F') {
+export function recommend(hours, bias = 0, unit = 'F', when = 'today') {
   const t = (f) => temp(f, unit);
   if (!hours || !hours.length) return null;
 
@@ -43,7 +43,7 @@ export function recommend(hours, bias = 0, unit = 'F') {
     items.push({ slot: 'bottom', icon: 'pants', name: 'Jeans or lined leggings', note: 'Tights underneath if you want' });
   }
 
-  // Outer layer: dress for the coldest part (the walk to school)
+  // Outer layer: dress for the coldest part of the time frame
   const takeOff = layered ? `Easy to take off. It hits ${t(high)} later` : null;
   let layer = null;
   if (snow || low < 32) layer = { icon: 'coat', kind: 'heavycoat', name: 'Heavy coat', note: 'Zip it all the way' };
@@ -70,7 +70,7 @@ export function recommend(hours, bias = 0, unit = 'F') {
 
   // Mom's rule
   let momRule = null;
-  if (storm) momRule = 'Thunderstorms are possible. Check the sky before you head out after school.';
+  if (storm) momRule = 'Thunderstorms are possible. Keep an eye on the sky.';
   else if (swing >= 15 && low < 62) momRule = `It's ${t(low)} to start and ${t(high)} later. Bring an extra sweater just in case.`;
   else if (rain >= 25 && rain < 50) momRule = `${rain}% chance of rain. Stick a hoodie in your bag just in case.`;
   else if (low < 25) momRule = "It's seriously cold. Coat on, no arguments.";
@@ -80,7 +80,7 @@ export function recommend(hours, bias = 0, unit = 'F') {
     items,
     momRule,
     headline: headlineFor({ avg, low, swing, wet, snow, storm }),
-    summary: summaryFor({ low, high, rain, windy, snow, unit }),
+    summary: summaryFor({ low, high, rain, windy, snow, unit, when }),
   };
 }
 
@@ -96,12 +96,12 @@ function headlineFor({ avg, low, swing, wet, snow, storm }) {
   return 'Shorts weather.';
 }
 
-function summaryFor({ low, high, rain, windy, snow, unit }) {
+function summaryFor({ low, high, rain, windy, snow, unit, when }) {
   const range = rangeText(low, high, unit);
   const extras = [];
   if (windy) extras.push('windy');
   if (rain >= 30) extras.push(`${rain}% chance of ${snow ? 'snow' : 'rain'}`);
-  return `Feels like ${range} during school${extras.length ? `, ${extras.join(', ')}` : ''}.`;
+  return `Feels like ${range} ${when}${extras.length ? `, ${extras.join(', ')}` : ''}.`;
 }
 
 export function bandFor(avg) {

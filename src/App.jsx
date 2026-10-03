@@ -100,7 +100,7 @@ export default function App() {
   // data index: 0 = yesterday, 1 = today, 2 = tomorrow
   const slot = data ? hoursForDay(data, dayIdx + 1, store.startHour, store.endHour) : null;
   const prevSlot = data ? hoursForDay(data, dayIdx, store.startHour, store.endHour) : null;
-  const rec = slot ? recommend(slot.hours, store.bias, store.unit) : null;
+  const rec = slot ? recommend(slot.hours, store.bias, store.unit, dayIdx === 0 ? 'today' : 'tomorrow') : null;
   const diff = compareDays(prevSlot ? recommend(prevSlot.hours, store.bias) : null, rec, store.unit);
   const otherDay = dayIdx === 0 ? 'yesterday' : 'today';
   const band = rec ? bandFor(rec.avg) : 'mild';
@@ -123,7 +123,7 @@ export default function App() {
           <p className="bubble me">what do I wear??</p>
           <p className="who">Mom</p>
           <div className="bubble mom">
-            <p className="headline">First, where's school?</p>
+            <p className="headline">First, where are you?</p>
             <p className="summary">I'll check the weather there every morning.</p>
           </div>
         </div>
@@ -221,7 +221,7 @@ export default function App() {
 
       <footer className="foot">
         <button className="link" onClick={() => setSettingsOpen(true)}>
-          {biasLabel(store.bias, store.unit)}. School {fmtHourShort(store.startHour)} to {fmtHourShort(store.endHour)}.
+          {biasLabel(store.bias, store.unit)}. Outfits for {fmtHourShort(store.startHour)}–{fmtHourShort(store.endHour)}.
         </button>
         {loading && <span className="loading">Updating…</span>}
       </footer>
@@ -358,7 +358,7 @@ function Settings({ store, update, onPick, onClose }) {
           ))}
         </div>
 
-        <h3>School hours</h3>
+        <h3>Time frame</h3>
         <div className="hours-pick">
           <label>From
             <select value={store.startHour} onChange={(e) => update({ startHour: Math.min(Number(e.target.value), store.endHour) })}>
@@ -373,7 +373,7 @@ function Settings({ store, update, onPick, onClose }) {
         </div>
 
         <h3>How you feel the cold</h3>
-        <p className="note">{biasLabel(store.bias, store.unit)}. This changes each time you rate an outfit after school.</p>
+        <p className="note">{biasLabel(store.bias, store.unit)}. This changes each time you rate an outfit at the end of the time frame.</p>
         <div className="bias">
           <button onClick={() => update({ bias: clamp(store.bias - 2, -12, 12) })} >I run warm</button>
           <span>{store.bias > 0 ? '+' : store.bias < 0 ? '−' : ''}{tempDelta(Math.abs(store.bias), store.unit)}°</span>
