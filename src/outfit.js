@@ -1,7 +1,9 @@
 import { isSnow, isStorm } from './weather.js';
 
 // bias > 0 means "runs cold": she should dress as if it's colder than forecast.
-export function recommend(hours, bias = 0) {
+// Everything is calculated in °F; unit only changes how numbers are shown.
+export function recommend(hours, bias = 0, unit = 'F') {
+  const t = (f) => temp(f, unit);
   if (!hours || !hours.length) return null;
 
   const eff = hours.map((h) => h.feels - bias);
@@ -34,7 +36,7 @@ export function recommend(hours, bias = 0) {
   if (avg >= 72 && !wet) {
     items.push({ slot: 'bottom', icon: 'shorts', name: windy ? 'Shorts' : 'Shorts or a skirt', note: windy ? 'Too windy for a skirt' : 'Legs approved' });
   } else if (avg >= 62 && !wet) {
-    items.push({ slot: 'bottom', icon: 'shorts', name: 'Shorts or jeans', note: low < 58 ? `Shorts are chilly at ${low}° in the morning` : 'Your call' });
+    items.push({ slot: 'bottom', icon: 'shorts', name: 'Shorts or jeans', note: low < 58 ? `Shorts are chilly at ${t(low)} in the morning` : 'Your call' });
   } else if (avg >= 40) {
     items.push({ slot: 'bottom', icon: 'pants', name: 'Jeans or leggings', note: 'Not a shorts day' });
   } else {
@@ -42,7 +44,7 @@ export function recommend(hours, bias = 0) {
   }
 
   // Outer layer: dress for the coldest part (the walk to school)
-  const takeOff = layered ? `Easy to take off. It hits ${high}° later` : null;
+  const takeOff = layered ? `Easy to take off. It hits ${t(high)} later` : null;
   let layer = null;
   if (snow || low < 32) layer = { icon: 'coat', kind: 'heavycoat', name: 'Heavy coat', note: 'Zip it all the way' };
   else if (low < 45) layer = { icon: wet ? 'raincoat' : 'coat', name: wet ? 'Warm waterproof coat' : 'Warm jacket', note: takeOff || 'All day' };
@@ -62,14 +64,14 @@ export function recommend(hours, bias = 0) {
 
   // Extras
   if (rain >= 40 && !snow) items.push({ slot: 'extra', icon: 'umbrella', name: 'Umbrella', note: `${rain}% chance of rain${rainStart != null ? ` around ${fmtHour(rainStart)}` : ''}` });
-  if (low < 35) items.push({ slot: 'extra', icon: 'beanie', name: 'Beanie and gloves', note: `Feels like ${low}°` });
+  if (low < 35) items.push({ slot: 'extra', icon: 'beanie', name: 'Beanie and gloves', note: `Feels like ${t(low)}` });
   if (uv >= 6 && !wet) items.push({ slot: 'extra', icon: 'sunglasses', name: 'Sunglasses', note: 'Sunscreen too, the UV is high' });
   if (windy) items.push({ slot: 'extra', icon: 'hairtie', name: 'Hair tie', note: `Gusts up to ${gusts} mph` });
 
   // Mom's rule
   let momRule = null;
   if (storm) momRule = 'Thunderstorms are possible. Check the sky before you head out after school.';
-  else if (swing >= 15 && low < 62) momRule = `It's ${low}° to start and ${high}° later. Bring an extra sweater just in case.`;
+  else if (swing >= 15 && low < 62) momRule = `It's ${t(low)} to start and ${t(high)} later. Bring an extra sweater just in case.`;
   else if (rain >= 25 && rain < 50) momRule = `${rain}% chance of rain. Stick a hoodie in your bag just in case.`;
   else if (low < 25) momRule = "It's seriously cold. Coat on, no arguments.";
 
@@ -78,7 +80,7 @@ export function recommend(hours, bias = 0) {
     items,
     momRule,
     headline: headlineFor({ avg, low, swing, wet, snow, storm }),
-    summary: summaryFor({ low, high, rain, windy, snow }),
+    summary: summaryFor({ low, high, rain, windy, snow, unit }),
   };
 }
 
@@ -94,8 +96,8 @@ function headlineFor({ avg, low, swing, wet, snow, storm }) {
   return 'Shorts weather.';
 }
 
-function summaryFor({ low, high, rain, windy, snow }) {
-  const range = low === high ? `${low}°` : `${low}–${high}°`;
+function summaryFor({ low, high, rain, windy, snow, unit }) {
+  const range = rangeText(low, high, unit);
   const extras = [];
   if (windy) extras.push('windy');
   if (rain >= 30) extras.push(`${rain}% chance of ${snow ? 'snow' : 'rain'}`);
@@ -122,14 +124,15 @@ export function fmtHourShort(h) {
   return `${n}${h < 12 ? 'a' : 'p'}`;
 }
 
-export function biasLabel(bias) {
-  if (bias > 0) return `You run ${bias}° cold`;
-  if (bias < 0) return `You run ${-bias}° warm`;
+export function biasLabel(bias, unit = 'F') {
+  const d = tempDelta(Math.abs(bias), unit);
+  if (bias > 0) return `You run ${d}° cold`;
+  if (bias < 0) return `You run ${d}° warm`;
   return 'Going by the forecast as is';
 }
 
 // What changes between two days' outfits (prev = yesterday, next = the day being viewed)
-export function compareDays(prev, next) {
+export function compareDays(prev, next, unit = 'F') {
   if (!prev || !next) return null;
   const changes = [];
   for (const slot of ['top', 'bottom', 'layer', 'shoes']) {
@@ -147,15 +150,27 @@ export function compareDays(prev, next) {
 
   return {
     delta: next.avg - prev.avg,
-    prevRange: rangeText(prev.low, prev.high),
-    nextRange: rangeText(next.low, next.high),
+    unit,
+    prevRange: rangeText(prev.low, prev.high, unit),
+    nextRange: rangeText(next.low, next.high, unit),
     changes,
   };
 }
 
-export function deltaText(delta, otherDay) {
+export function deltaText(delta, otherDay, unit = 'F') {
   if (Math.abs(delta) <= 2) return `About the same as ${otherDay}`;
-  return `${Math.abs(delta)}° ${delta < 0 ? 'colder' : 'warmer'} than ${otherDay}`;
+  return `${tempDelta(Math.abs(delta), unit)}° ${delta < 0 ? 'colder' : 'warmer'} than ${otherDay}`;
 }
 
-const rangeText = (lo, hi) => (lo === hi ? `${lo}°` : `${lo}–${hi}°`);
+function rangeText(lo, hi, unit = 'F') {
+  const a = toUnit(lo, unit), b = toUnit(hi, unit);
+  return a === b ? `${a}°` : `${a}–${b}°`;
+}
+
+const toUnit = (f, unit) => Math.round(unit === 'C' ? ((f - 32) * 5) / 9 : f);
+
+// A temperature in °F shown in the chosen unit, e.g. temp(50, 'C') -> "10°"
+export const temp = (f, unit = 'F') => `${toUnit(f, unit)}°`;
+
+// A difference in °F converted to the chosen unit (no 32° offset)
+export const tempDelta = (dF, unit = 'F') => Math.round(unit === 'C' ? (dF * 5) / 9 : dF);

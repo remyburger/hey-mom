@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchForecast, hoursForDay, searchPlaces, getDeviceLocation } from './weather.js';
-import { recommend, bandFor, fmtHourShort, biasLabel, compareDays, deltaText } from './outfit.js';
+import { recommend, bandFor, fmtHourShort, biasLabel, compareDays, deltaText, temp, tempDelta } from './outfit.js';
 import Icon from './Icons.jsx';
 
 const KEY = 'hey-mom:v1';
-const DEFAULTS = { startHour: 7, endHour: 15, bias: 0, place: null, lastFeedback: null, cache: null };
+const DEFAULTS = { unit: 'F', startHour: 7, endHour: 15, bias: 0, place: null, lastFeedback: null, cache: null };
 const STALE_MS = 30 * 60 * 1000;
 const SKY = {
   light: { freezing: '#d9e4ff', cold: '#d7ecf5', cool: '#e9e2f7', mild: '#dcf1e2', warm: '#fff0c9', hot: '#ffdcd2' },
@@ -91,8 +91,8 @@ export default function App() {
   // data index: 0 = yesterday, 1 = today, 2 = tomorrow
   const slot = data ? hoursForDay(data, dayIdx + 1, store.startHour, store.endHour) : null;
   const prevSlot = data ? hoursForDay(data, dayIdx, store.startHour, store.endHour) : null;
-  const rec = slot ? recommend(slot.hours, store.bias) : null;
-  const diff = compareDays(prevSlot ? recommend(prevSlot.hours, store.bias) : null, rec);
+  const rec = slot ? recommend(slot.hours, store.bias, store.unit) : null;
+  const diff = compareDays(prevSlot ? recommend(prevSlot.hours, store.bias) : null, rec, store.unit);
   const otherDay = dayIdx === 0 ? 'yesterday' : 'today';
   const band = rec ? bandFor(rec.avg) : 'mild';
 
@@ -153,7 +153,7 @@ export default function App() {
       </header>
 
       {dayIdx === 0 && data?.current && (
-        <p className="now">Right now {Math.round(data.current.temperature_2m)}°, feels like {Math.round(data.current.apparent_temperature)}°</p>
+        <p className="now">Right now {temp(data.current.temperature_2m, store.unit)}, feels like {temp(data.current.apparent_temperature, store.unit)}</p>
       )}
 
       {error && (
@@ -194,7 +194,7 @@ export default function App() {
 
           <section className="hours" aria-label="Feels-like temperature by hour">
             <h2>Hour by hour</h2>
-            <HourStrip hours={slot.hours} bias={store.bias} />
+            <HourStrip hours={slot.hours} bias={store.bias} unit={store.unit} />
           </section>
 
           {canRate && (
@@ -212,7 +212,7 @@ export default function App() {
 
       <footer className="foot">
         <button className="link" onClick={() => setSettingsOpen(true)}>
-          {biasLabel(store.bias)}. School {fmtHourShort(store.startHour)} to {fmtHourShort(store.endHour)}.
+          {biasLabel(store.bias, store.unit)}. School {fmtHourShort(store.startHour)} to {fmtHourShort(store.endHour)}.
         </button>
         {loading && <span className="loading">Updating…</span>}
       </footer>
@@ -235,7 +235,7 @@ function CompareCard({ diff, otherDay, thisDay }) {
         <span className="arrow" aria-hidden="true">→</span>
         <span><span className="lbl">{thisDay}</span>{diff.nextRange}</span>
       </div>
-      <p className="compare-delta">{deltaText(diff.delta, otherDay)}.</p>
+      <p className="compare-delta">{deltaText(diff.delta, otherDay, diff.unit)}.</p>
       {diff.changes.length === 0 ? (
         <p className="compare-same">Same outfit as {otherDay} works.</p>
       ) : (
@@ -252,7 +252,7 @@ function CompareCard({ diff, otherDay, thisDay }) {
   );
 }
 
-function HourStrip({ hours, bias }) {
+function HourStrip({ hours, bias, unit }) {
   const feels = hours.map((h) => h.feels - bias);
   const lo = Math.min(...feels) - 4;
   const hi = Math.max(...feels) + 4;
@@ -262,7 +262,7 @@ function HourStrip({ hours, bias }) {
         const pct = ((feels[i] - lo) / (hi - lo)) * 100;
         return (
           <div className="hr" key={h.hour}>
-            <span className="t">{Math.round(feels[i])}°</span>
+            <span className="t">{temp(feels[i], unit)}</span>
             <span className="bar"><span style={{ height: `${pct}%` }} /></span>
             <span className={`r ${h.rain >= 30 ? 'wet' : ''}`}>{h.rain >= 30 ? `${h.rain}%` : ''}</span>
             <span className="h">{fmtHourShort(h.hour)}</span>
@@ -340,6 +340,15 @@ function Settings({ store, update, onPick, onClose }) {
         <p className="note">Now: {store.place.name}{store.place.detail ? `, ${store.place.detail}` : ''}</p>
         <PlacePicker onPick={onPick} />
 
+        <h3>Temperature</h3>
+        <div className="seg" role="radiogroup" aria-label="Temperature unit">
+          {[['F', '°F'], ['C', '°C']].map(([u, label]) => (
+            <button key={u} role="radio" aria-checked={store.unit === u} className={store.unit === u ? 'on' : ''} onClick={() => update({ unit: u })}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         <h3>School hours</h3>
         <div className="hours-pick">
           <label>From
@@ -355,10 +364,10 @@ function Settings({ store, update, onPick, onClose }) {
         </div>
 
         <h3>How you feel the cold</h3>
-        <p className="note">{biasLabel(store.bias)}. This changes each time you rate an outfit after school.</p>
+        <p className="note">{biasLabel(store.bias, store.unit)}. This changes each time you rate an outfit after school.</p>
         <div className="bias">
           <button onClick={() => update({ bias: clamp(store.bias - 2, -12, 12) })} >I run warm</button>
-          <span>{store.bias > 0 ? `+${store.bias}` : store.bias}°</span>
+          <span>{store.bias > 0 ? '+' : store.bias < 0 ? '−' : ''}{tempDelta(Math.abs(store.bias), store.unit)}°</span>
           <button onClick={() => update({ bias: clamp(store.bias + 2, -12, 12) })} >I run cold</button>
           <button className="link" onClick={() => update({ bias: 0 })}>Reset</button>
         </div>
